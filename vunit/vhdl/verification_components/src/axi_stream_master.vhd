@@ -24,7 +24,7 @@ entity axi_stream_master is
     tdata : out std_logic_vector(data_length(master)-1 downto 0) := (others => '0');
     tlast : out std_logic := '0';
     tkeep : out std_logic_vector(data_length(master)/8-1 downto 0) := (others => '1');
-    tuser : out std_logic_vector(16-1 downto 0) := (others => '0'));
+    tuser : out std_logic_vector(user_length(master)-1 downto 0) := (others => '0'));
 end entity;
 
 architecture a of axi_stream_master is

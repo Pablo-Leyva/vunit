@@ -24,7 +24,7 @@ entity axi_stream_slave is
     tdata : in std_logic_vector(data_length(slave)-1 downto 0) := (others => '0');
     tlast : in std_logic := '1';
     tkeep : in std_logic_vector(data_length(slave)/8-1 downto 0) := (others => '1');
-    tuser : in std_logic_vector(16-1 downto 0) := (others => '0'));
+    tuser : in std_logic_vector(user_length(slave)-1 downto 0) := (others => '0'));
 end entity;
 
 architecture a of axi_stream_slave is

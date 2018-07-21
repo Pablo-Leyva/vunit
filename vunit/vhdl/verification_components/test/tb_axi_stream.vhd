@@ -23,15 +23,18 @@ entity tb_axi_stream is
 end entity;
 
 architecture a of tb_axi_stream is
-  constant axi_data_width : natural := 32;
-  constant axi_user_width : natural := 16;
-  constant master_axi_stream : axi_stream_master_t := new_axi_stream_master(data_length => axi_data_width, user_length => axi_user_width);
+  constant AXI_DATA_WIDTH_C : natural := 32;
+  constant AXI_USER_WIDTH_C : natural := 16;
+  constant master_axi_stream : axi_stream_master_t := new_axi_stream_master(data_length => AXI_DATA_WIDTH_C, user_length => AXI_USER_WIDTH_C);
   constant master_stream : stream_master_t := as_stream(master_axi_stream);
 
-  constant slave_axi_stream : axi_stream_slave_t := new_axi_stream_slave(data_length => axi_data_width, user_length => axi_user_width);
+  constant slave_axi_stream : axi_stream_slave_t := new_axi_stream_slave(data_length => AXI_DATA_WIDTH_C, user_length => AXI_USER_WIDTH_C);
   constant slave_stream : stream_slave_t := as_stream(slave_axi_stream);
 
   shared variable rnd_stimuli, rnd_expected, rnd_number : RandomPType;
+
+  constant axi_data_width : natural := data_length(slave_axi_stream);
+  constant axi_user_width : natural := user_length(slave_axi_stream);
 
   signal aclk   : std_logic := '0';
   signal tvalid : std_logic;
