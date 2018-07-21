@@ -19,22 +19,39 @@ use work.stream_master_pkg.all;
 use work.stream_slave_pkg.all;
 
 entity tb_axi_stream is
-  generic (runner_cfg : string);
+  generic (
+  encoded_tb_cfg : string;
+  runner_cfg : string);
 end entity;
 
 architecture a of tb_axi_stream is
-  constant AXI_DATA_WIDTH_C : natural := 32;
-  constant AXI_USER_WIDTH_C : natural := 16;
-  constant master_axi_stream : axi_stream_master_t := new_axi_stream_master(data_length => AXI_DATA_WIDTH_C, user_length => AXI_USER_WIDTH_C);
+
+  type tb_cfg_t is record
+    random_seed_g   : positive;
+    axi_data_width_g: positive;
+    axi_user_width_g: positive;
+  end record tb_cfg_t;
+
+  impure function decode(encoded_tb_cfg : string) return tb_cfg_t is
+  begin
+    return (random_seed_g    => positive'value(get(encoded_tb_cfg, "random_seed_g")),
+            axi_data_width_g => positive'value(get(encoded_tb_cfg, "axi_data_width_g")),
+            axi_user_width_g => positive'value(get(encoded_tb_cfg, "axi_user_width_g")));
+  end function decode;
+
+  constant tb_cfg : tb_cfg_t := decode(encoded_tb_cfg);
+
+  constant master_axi_stream : axi_stream_master_t := new_axi_stream_master(data_length => tb_cfg.axi_data_width_g, user_length => tb_cfg.axi_user_width_g);
   constant master_stream : stream_master_t := as_stream(master_axi_stream);
 
-  constant slave_axi_stream : axi_stream_slave_t := new_axi_stream_slave(data_length => AXI_DATA_WIDTH_C, user_length => AXI_USER_WIDTH_C);
+  constant slave_axi_stream : axi_stream_slave_t := new_axi_stream_slave(data_length => tb_cfg.axi_data_width_g, user_length => tb_cfg.axi_user_width_g);
   constant slave_stream : stream_slave_t := as_stream(slave_axi_stream);
 
   shared variable rnd_stimuli, rnd_expected, rnd_number : RandomPType;
 
   constant axi_data_width : natural := data_length(slave_axi_stream);
   constant axi_user_width : natural := user_length(slave_axi_stream);
+  constant random_seed    : integer := tb_cfg.random_seed_g;
 
   signal aclk   : std_logic := '0';
   signal tvalid : std_logic;
@@ -86,9 +103,9 @@ begin
   begin
     test_runner_setup(runner, runner_cfg);
 
-    rnd_stimuli.InitSeed(rnd_stimuli'instance_name);
-    rnd_expected.InitSeed(rnd_stimuli'instance_name);
-    rnd_number.InitSeed(rnd_number'instance_name);
+    rnd_stimuli.InitSeed(random_seed);
+    rnd_expected.InitSeed(random_seed);
+    rnd_number.InitSeed(random_seed);
 
     if run("Check parameter configuration") then
       check_equal((axi_data_width mod 8 ), 0, "axis stream width must be an integer multiple of 8");
@@ -134,7 +151,7 @@ begin
       end loop;
 
     elsif run("test multiple axi push and axi pop with tlast") then
-      bytes_to_send := rnd_number.RandInt(1,512);
+      bytes_to_send := rnd_number.RandInt(1,1024*100);
       number_of_full_transfers   := bytes_to_send/(axi_data_width/8);
       active_bytes_last_transfer := bytes_to_send mod (axi_data_width/8);
 
@@ -172,7 +189,7 @@ begin
       check_equal(counter, 0, "Different read/write counter");
 
     elsif run("test multiple axi push and axi pop with tlast tkeep and tuser") then
-      bytes_to_send := rnd_number.RandInt(1,512);
+      bytes_to_send := rnd_number.RandInt(1,1024*100);
       number_of_full_transfers   := bytes_to_send/(axi_data_width/8);
       active_bytes_last_transfer := bytes_to_send mod (axi_data_width/8);
 

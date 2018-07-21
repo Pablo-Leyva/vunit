@@ -8,6 +8,8 @@ from os.path import join, dirname
 from vunit import VUnit
 from itertools import product
 
+from random import randint
+
 root = dirname(__file__)
 
 ui = VUnit.from_argv()
@@ -45,5 +47,14 @@ tb_wishbone_master = lib.test_bench("tb_wishbone_master")
 for test in tb_wishbone_master.get_tests():
     gen_wb_tests(test, [8, 32], [1, 64], [0.3, 1.0], [0.4, 0.0])
 
+tb_axi_stream = lib.test_bench("tb_axi_stream")
+
+for test in tb_axi_stream.get_tests():
+    axis_tb_cfg = dict(
+        random_seed_g=(randint(1,1024)),
+        axi_data_width_g=(randint(1, 32)*8),
+        axi_user_width_g=(randint(1, 32)*8))
+    test.add_config(name='bus_width',
+                    generics=dict(encoded_tb_cfg=encode(axis_tb_cfg)))
 
 ui.main()
