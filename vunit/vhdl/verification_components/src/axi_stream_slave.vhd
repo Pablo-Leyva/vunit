@@ -11,6 +11,7 @@ context work.vunit_context;
 context work.com_context;
 use work.stream_slave_pkg.all;
 use work.axi_stream_pkg.all;
+use work.queue_pkg.all;
 use work.sync_pkg.all;
 
 entity axi_stream_slave is
@@ -18,10 +19,12 @@ entity axi_stream_slave is
     slave : axi_stream_slave_t);
   port (
     aclk : in std_logic;
-    tvalid : in std_logic;
+    tvalid : in std_logic := '0';
     tready : out std_logic := '0';
-    tdata : in std_logic_vector(data_length(slave)-1 downto 0);
-    tlast : in std_logic := '1');
+    tdata : in std_logic_vector(data_length(slave)-1 downto 0) := (others => '0');
+    tlast : in std_logic := '1';
+    tkeep : in std_logic_vector(data_length(slave)/8-1 downto 0) := (others => '1');
+    tuser : in std_logic_vector(16-1 downto 0) := (others => '0'));
 end entity;
 
 architecture a of axi_stream_slave is
@@ -33,23 +36,29 @@ begin
     receive(net, slave.p_actor, msg);
     msg_type := message_type(msg);
 
-    if msg_type = stream_pop_msg then
+    if msg_type = stream_pop_msg or msg_type = pop_axi_stream_msg then
       tready <= '1';
       wait until (tvalid and tready) = '1' and rising_edge(aclk);
       tready <= '0';
 
       reply_msg := new_msg;
       push_std_ulogic_vector(reply_msg, tdata);
-      if tlast = '0' then
-        push_boolean(reply_msg,false);
-      else
-        push_boolean(reply_msg,true);
-      end if;
-      reply(net, msg, reply_msg);
+        if msg_type = pop_axi_stream_msg then
+          push_std_ulogic(reply_msg, tlast);
+          push_std_ulogic_vector(reply_msg, tkeep);
+          push_std_ulogic_vector(reply_msg, tuser);
+          reply(net, msg, reply_msg);
+        else
+          if tlast = '0' then
+            push_boolean(reply_msg,false);
+          else
+            push_boolean(reply_msg,true);
+          end if;
+          reply(net, msg, reply_msg);
+        end if;
     else
       unexpected_msg_type(msg_type);
     end if;
-
   end process;
 
 end architecture;

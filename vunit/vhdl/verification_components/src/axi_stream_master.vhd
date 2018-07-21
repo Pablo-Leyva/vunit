@@ -20,9 +20,11 @@ entity axi_stream_master is
   port (
     aclk : in std_logic;
     tvalid : out std_logic := '0';
-    tready : in std_logic;
+    tready : in std_logic := '0';
     tdata : out std_logic_vector(data_length(master)-1 downto 0) := (others => '0');
-    tlast : out std_logic := '0');
+    tlast : out std_logic := '0';
+    tkeep : out std_logic_vector(data_length(master)/8-1 downto 0) := (others => '1');
+    tuser : out std_logic_vector(16-1 downto 0) := (others => '0'));
 end entity;
 
 architecture a of axi_stream_master is
@@ -41,12 +43,16 @@ begin
       tdata <= pop_std_ulogic_vector(msg);
       if msg_type = push_axi_stream_msg then
         tlast <= pop_std_ulogic(msg);
+        tkeep <= pop_std_ulogic_vector(msg);
+        tuser <= pop_std_ulogic_vector(msg);
       else
         if pop_boolean(msg) then
           tlast <= '1';
         else
           tlast <= '0';
         end if;
+        tkeep <= (others => '1');
+        tuser <= (others => '0');
       end if;
       wait until (tvalid and tready) = '1' and rising_edge(aclk);
       tvalid <= '0';
