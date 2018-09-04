@@ -42,7 +42,8 @@ package axi_stream_agent_pkg is
 
   constant config_axi_stream_msg : msg_type_t := new_msg_type("config axi stream");
 
-  type operation_mode_t is (NO_DELAY,
+  type operation_mode_t is (INVALID,
+                            NO_DELAY,
                             DELAY_BETWEEN_PACKETS,
                             DELAY_BETWEEN_BEATS);
 
@@ -92,17 +93,12 @@ package body axi_stream_agent_pkg is
   begin
     if (operation_string = "NO_DELAY") then
       operation_mode := NO_DELAY;
-      --return operation_mode;
     elsif (operation_string = "DELAY_BETWEEN_PACKETS") then
       operation_mode := DELAY_BETWEEN_PACKETS;
-      --return operation_mode;
     elsif (operation_string = "DELAY_BETWEEN_BEATS") then
       operation_mode := DELAY_BETWEEN_BEATS;
-      --return operation_mode;
     else
-      -- TODO: ERROR!
-      operation_mode := NO_DELAY;
-      --return operation_mode;
+      operation_mode := INVALID;
     end if;
     return operation_mode;
   end;
@@ -153,7 +149,6 @@ package body axi_stream_agent_pkg is
     variable msg : msg_t := new_msg(push_axi_stream_msg);
     constant normalized_data : std_logic_vector(data_length(axi_stream_agent)-1 downto 0) := tdata;
   begin
-    info("Sending AXI Stream transfer - AGENT");
     push_std_ulogic_vector(msg, normalized_data);
     push_std_ulogic(msg, tlast);
     send(net, axi_stream_agent.p_actor, msg);

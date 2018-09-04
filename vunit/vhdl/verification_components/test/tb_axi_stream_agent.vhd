@@ -102,6 +102,9 @@ begin
     variable active_bytes_last_transfer : natural;
     variable counter :natural := 0;
 
+    variable packet_to_send : integer := 10;
+    variable packet_length  : integer := 10;
+
     variable reference_queue : queue_t := new_queue;
     variable reference : stream_reference_t;
   begin
@@ -111,23 +114,94 @@ begin
     rnd_expected.InitSeed(random_seed);
     rnd_number.InitSeed(random_seed);
 
+    wait for 100 ns;
+
     if run("Check parameter configuration") then
       check_equal((axi_data_width mod 8 ), 0, "axis stream width must be an integer multiple of 8");
 
     elsif run("test single axi push and axi pop") then
-      --push_axi_stream(net, master_axi_stream_agent, rnd_stimuli.RandSlv(axi_data_width), tlast => '1');
-      push_axi_stream(net, master_axi_stream, rnd_stimuli.RandSlv(axi_data_width), tlast => '1');
+      push_axi_stream(net, master_axi_stream_agent, rnd_stimuli.RandSlv(axi_data_width), tlast => '1');
       pop_axi_stream(net, slave_axi_stream, data, tlast);
       check_equal(data, rnd_expected.RandSlv(axi_data_width), "pop stream data");
-      --check_equal(tlast, true, "pop stream last");
+      check_equal(tlast, true, "pop stream last");
 
+    elsif run("test multiple axi push and axi pop") then
+      for i in 0 to 10 loop
+        tlast := '1' when (i = 10) else '0';
+        push_axi_stream(net, master_axi_stream_agent, rnd_stimuli.RandSlv(axi_data_width), tlast);
+        pop_axi_stream(net, slave_axi_stream, data, tlast);
+        check_equal(data, rnd_expected.RandSlv(axi_data_width), "pop stream data");
+        if ( i=10 ) then
+          check_equal(tlast, true, "pop stream last");
+        else
+          check_equal(tlast, false, "pop stream last");
+        end if;
+      end loop;
+
+    elsif run("test multiple axi push and axi pop - NO DELAY") then
+
+      config_axi_stream(net, master_axi_stream_agent, to_operation_mode_t("NO_DELAY"));
+
+      for i in 0 to 10 loop
+        tlast := '1' when (i = 10) else '0';
+        push_axi_stream(net, master_axi_stream_agent, rnd_stimuli.RandSlv(axi_data_width), tlast);
+
+        pop_axi_stream(net, slave_axi_stream, data, tlast);
+        check_equal(data, rnd_expected.RandSlv(axi_data_width), "pop stream data");
+        if ( i=10 ) then
+          check_equal(tlast, true, "pop stream last");
+        else
+          check_equal(tlast, false, "pop stream last");
+        end if;
+      end loop;
+
+    elsif run("test multiple axi push and axi pop - DELAY_BETWEEN_BEATS") then
+      config_axi_stream(net, master_axi_stream_agent, to_operation_mode_t("DELAY_BETWEEN_BEATS"));
+
+      for i in 0 to 10 loop
+        tlast := '1' when (i = 10) else '0';
+        push_axi_stream(net, master_axi_stream_agent, rnd_stimuli.RandSlv(axi_data_width), tlast);
+      end loop;
+
+      for i in 0 to 10 loop
+        pop_axi_stream(net, slave_axi_stream, data, tlast);
+        check_equal(data, rnd_expected.RandSlv(axi_data_width), "pop stream data");
+        if ( i=10 ) then
+          check_equal(tlast, true, "pop stream last");
+        else
+          check_equal(tlast, false, "pop stream last");
+        end if;
+      end loop;
+
+    elsif run("test multiple axi push and axi pop - DELAY_BETWEEN_PACKETS") then
+      packet_to_send := 10;
+      packet_length  := 10;
+
+      config_axi_stream(net, master_axi_stream_agent, to_operation_mode_t("DELAY_BETWEEN_PACKETS"));
+
+      for j in 0 to packet_to_send loop
+        for i in 0 to packet_length loop
+          tlast := '1' when (i = packet_length) else '0';
+          push_axi_stream(net, master_axi_stream_agent, rnd_stimuli.RandSlv(axi_data_width), tlast);
+        end loop;
+      end loop;
+
+      for packet_to_send in 0 to 10 loop
+        while (tlast /= '1') loop
+          pop_axi_stream(net, slave_axi_stream, data, tlast);
+          check_equal(data, rnd_expected.RandSlv(axi_data_width), "pop stream data");
+        end loop;
+        tlast := '0';
+      end loop;
     end if;
+
+    wait for 100 ns;
     test_runner_cleanup(runner);
   end process;
 
   test_runner_watchdog(runner, 1 ms);
 
-  axi_stream_master_agent_inst : entity work.axi_stream_master
+  axi_stream_master_agent_inst : entity work.axi_stream_master_agent
     generic map (
       master => master_axi_stream_agent)
     port map (
