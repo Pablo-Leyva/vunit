@@ -57,4 +57,14 @@ for test in tb_axi_stream.get_tests():
     test.add_config(name='bus_width',
                     generics=dict(encoded_tb_cfg=encode(axis_tb_cfg)))
 
+tb_axi_stream_agent = lib.test_bench("tb_axi_stream_agent")
+
+for test in tb_axi_stream_agent.get_tests():
+    axis_tb_cfg = dict(
+        random_seed_g=(randint(1,1024)),
+        axi_data_width_g = 8, #axi_data_width_g=(randint(1, 32)*8),
+        axi_user_width_g = 8) #axi_user_width_g=(randint(1, 32)*8))
+    test.add_config(name='bus_width',
+                    generics=dict(encoded_tb_cfg=encode(axis_tb_cfg)))
+
 ui.main()
