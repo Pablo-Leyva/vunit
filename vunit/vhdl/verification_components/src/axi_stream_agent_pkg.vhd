@@ -36,8 +36,16 @@ package axi_stream_agent_pkg is
                                               actor : actor_t := null_actor;
                                               user_length : natural := 1) return axi_stream_master_agent_t;
 
+  impure function new_axi_stream_slave_agent(data_length : natural;
+                                              axi_stream_slave : axi_stream_slave_t;
+                                              actor : actor_t := null_actor;
+                                              user_length : natural := 1) return axi_stream_slave_agent_t;
+
   impure function data_length(master : axi_stream_master_agent_t) return natural;
   impure function user_length(master : axi_stream_master_agent_t) return natural;
+  impure function data_length(slave  : axi_stream_slave_agent_t)  return natural;
+  impure function user_length(slave  : axi_stream_slave_agent_t)  return natural;
+
   impure function get_axi_stream(master : axi_stream_master_agent_t) return axi_stream_master_t;
 
   constant config_axi_stream_msg : msg_type_t := new_msg_type("config axi stream");
@@ -51,9 +59,13 @@ package axi_stream_agent_pkg is
   pure function to_operation_mode_t(operation_string : string) return operation_mode_t;
 
   -- Reference to future stream result
-  --alias stream_reference_t is msg_t;
+  alias stream_reference_t is msg_t;
   procedure config_axi_stream(signal net : inout network_t;
                               axi_stream_agent : axi_stream_master_agent_t;
+                              operation_mode : operation_mode_t);
+
+  procedure config_axi_stream(signal net : inout network_t;
+                              axi_stream_agent : axi_stream_slave_agent_t;
                               operation_mode : operation_mode_t);
 
   procedure push_axi_stream(signal net : inout network_t;
@@ -70,6 +82,20 @@ package axi_stream_agent_pkg is
                             axi_stream_agent : axi_stream_master_agent_t;
                             tdata : std_logic_vector);
 
+  procedure await_pop_axi_stream_reply(signal net : inout network_t;
+                                       variable reference : inout stream_reference_t;
+                                       variable tdata : out std_logic_vector;
+                                       variable tlast : out std_logic);
+
+ -- Non-blocking: pop a value from the stream to be read in the future
+  procedure pop_axi_stream(signal net : inout network_t;
+                            axi_stream_agent : axi_stream_slave_agent_t;
+                            variable reference : inout stream_reference_t);
+
+  procedure pop_axi_stream(signal net : inout network_t;
+                            axi_stream_agent : axi_stream_slave_agent_t;
+                            variable tdata : out std_logic_vector;
+                            variable tlast : out std_logic);
 end package;
 
 package body axi_stream_agent_pkg is
@@ -117,6 +143,20 @@ package body axi_stream_agent_pkg is
             p_axi_stream_master => axi_stream_master);
   end;
 
+  impure function new_axi_stream_slave_agent(data_length : natural;
+                                              axi_stream_slave : axi_stream_slave_t;
+                                              actor : actor_t := null_actor;
+                                              user_length : natural := 1) return axi_stream_slave_agent_t is
+    variable p_actor : actor_t;
+  begin
+    p_actor := actor when actor /= null_actor else new_actor;
+
+    return (p_actor => p_actor,
+            p_user_length => user_length,
+            p_data_length => data_length,
+            p_axi_stream_slave => axi_stream_slave);
+  end;
+
   impure function data_length(master : axi_stream_master_agent_t) return natural is
   begin
     return master.p_data_length;
@@ -127,6 +167,16 @@ package body axi_stream_agent_pkg is
     return master.p_user_length;
   end;
 
+  impure function data_length(slave : axi_stream_slave_agent_t) return natural is
+  begin
+    return slave.p_data_length;
+  end;
+
+  impure function user_length(slave : axi_stream_slave_agent_t) return natural is
+  begin
+    return slave.p_user_length;
+  end;
+
   impure function get_axi_stream(master : axi_stream_master_agent_t) return axi_stream_master_t is
   begin
     return master.p_axi_stream_master;
@@ -135,6 +185,15 @@ package body axi_stream_agent_pkg is
   -- PUSH PULL PROCEDURES / config
   procedure config_axi_stream(signal net : inout network_t;
                               axi_stream_agent : axi_stream_master_agent_t;
+                              operation_mode : operation_mode_t) is
+    variable msg : msg_t := new_msg(config_axi_stream_msg);
+  begin
+    push_string(msg, to_string(operation_mode));
+    send(net, axi_stream_agent.p_actor, msg);
+  end;
+
+  procedure config_axi_stream(signal net : inout network_t;
+                              axi_stream_agent : axi_stream_slave_agent_t;
                               operation_mode : operation_mode_t) is
     variable msg : msg_t := new_msg(config_axi_stream_msg);
   begin
@@ -172,5 +231,37 @@ package body axi_stream_agent_pkg is
   begin
     push_axi_stream(net, axi_stream_agent, tdata, '1');
   end;
+
+  procedure await_pop_axi_stream_reply(signal net : inout network_t;
+                                      variable reference : inout stream_reference_t;
+                                      variable tdata : out std_logic_vector;
+                                      variable tlast : out std_logic) is
+    variable reply_msg : msg_t;
+  begin
+    receive_reply(net, reference, reply_msg);
+    tdata := pop_std_ulogic_vector(reply_msg);
+    tlast := pop_std_ulogic(reply_msg);
+    delete(reference);
+    delete(reply_msg);
+  end;
+
+  procedure pop_axi_stream(signal net : inout network_t;
+                           axi_stream_agent : axi_stream_slave_agent_t;
+                           variable reference : inout stream_reference_t) is
+  begin
+    reference := new_msg(pop_axi_stream_msg);
+    send(net, axi_stream_agent.p_actor, reference);
+  end;
+
+  procedure pop_axi_stream(signal net : inout network_t;
+                          axi_stream_agent : axi_stream_slave_agent_t;
+                          variable tdata : out std_logic_vector;
+                          variable tlast : out std_logic) is
+    variable reference : stream_reference_t;
+  begin
+    pop_axi_stream(net, axi_stream_agent, reference);
+    await_pop_axi_stream_reply(net, reference, tdata, tlast);
+  end;
+
 
 end package body;

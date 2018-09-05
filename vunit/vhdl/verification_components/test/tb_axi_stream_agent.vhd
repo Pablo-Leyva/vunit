@@ -49,6 +49,10 @@ architecture a of tb_axi_stream_agent is
   --constant master_stream : stream_master_t := as_stream(master_axi_stream);
 
   constant slave_axi_stream : axi_stream_slave_t := new_axi_stream_slave(data_length => tb_cfg.axi_data_width_g, user_length => tb_cfg.axi_user_width_g);
+  constant slave_axi_stream_agent : axi_stream_slave_agent_t := new_axi_stream_slave_agent(axi_stream_slave => slave_axi_stream,
+                                                                                              data_length => tb_cfg.axi_data_width_g,
+                                                                                              user_length => tb_cfg.axi_user_width_g);
+
   --constant slave_stream : stream_slave_t := as_stream(slave_axi_stream);
 
   shared variable rnd_stimuli, rnd_expected, rnd_number : RandomPType;
@@ -119,34 +123,23 @@ begin
     if run("Check parameter configuration") then
       check_equal((axi_data_width mod 8 ), 0, "axis stream width must be an integer multiple of 8");
 
-    elsif run("test single axi push and axi pop") then
+    elsif run("single axi push and axi pop - master/slave no_delay/no_delay") then
+      config_axi_stream(net, master_axi_stream_agent, to_operation_mode_t("NO_DELAY"));
+      config_axi_stream(net, slave_axi_stream_agent,  to_operation_mode_t("NO_DELAY"));
+
       push_axi_stream(net, master_axi_stream_agent, rnd_stimuli.RandSlv(axi_data_width), tlast => '1');
-      pop_axi_stream(net, slave_axi_stream, data, tlast);
+      pop_axi_stream(net, slave_axi_stream_agent, data, tlast);
       check_equal(data, rnd_expected.RandSlv(axi_data_width), "pop stream data");
       check_equal(tlast, true, "pop stream last");
 
-    elsif run("test multiple axi push and axi pop") then
-      for i in 0 to 10 loop
-        tlast := '1' when (i = 10) else '0';
-        push_axi_stream(net, master_axi_stream_agent, rnd_stimuli.RandSlv(axi_data_width), tlast);
-        pop_axi_stream(net, slave_axi_stream, data, tlast);
-        check_equal(data, rnd_expected.RandSlv(axi_data_width), "pop stream data");
-        if ( i=10 ) then
-          check_equal(tlast, true, "pop stream last");
-        else
-          check_equal(tlast, false, "pop stream last");
-        end if;
-      end loop;
-
-    elsif run("test multiple axi push and axi pop - NO DELAY") then
-
+    elsif run("Multiple axi push and axi pop - master/slave no_delay/no_delay") then
       config_axi_stream(net, master_axi_stream_agent, to_operation_mode_t("NO_DELAY"));
+      config_axi_stream(net, slave_axi_stream_agent,  to_operation_mode_t("NO_DELAY"));
 
       for i in 0 to 10 loop
         tlast := '1' when (i = 10) else '0';
         push_axi_stream(net, master_axi_stream_agent, rnd_stimuli.RandSlv(axi_data_width), tlast);
-
-        pop_axi_stream(net, slave_axi_stream, data, tlast);
+        pop_axi_stream(net, slave_axi_stream_agent, data, tlast);
         check_equal(data, rnd_expected.RandSlv(axi_data_width), "pop stream data");
         if ( i=10 ) then
           check_equal(tlast, true, "pop stream last");
@@ -155,16 +148,14 @@ begin
         end if;
       end loop;
 
-    elsif run("test multiple axi push and axi pop - DELAY_BETWEEN_BEATS") then
+    elsif run("Multiple axi push and axi pop - master/slave delay_between_beats/no_delay") then
       config_axi_stream(net, master_axi_stream_agent, to_operation_mode_t("DELAY_BETWEEN_BEATS"));
+      config_axi_stream(net, slave_axi_stream_agent,  to_operation_mode_t("NO_DELAY"));
 
       for i in 0 to 10 loop
         tlast := '1' when (i = 10) else '0';
         push_axi_stream(net, master_axi_stream_agent, rnd_stimuli.RandSlv(axi_data_width), tlast);
-      end loop;
-
-      for i in 0 to 10 loop
-        pop_axi_stream(net, slave_axi_stream, data, tlast);
+        pop_axi_stream(net, slave_axi_stream_agent, data, tlast);
         check_equal(data, rnd_expected.RandSlv(axi_data_width), "pop stream data");
         if ( i=10 ) then
           check_equal(tlast, true, "pop stream last");
@@ -173,11 +164,31 @@ begin
         end if;
       end loop;
 
-    elsif run("test multiple axi push and axi pop - DELAY_BETWEEN_PACKETS") then
+    elsif run("Multiple axi push and axi pop - master/slave delay_between_packets/delay_between_beats") then
+      config_axi_stream(net, master_axi_stream_agent, to_operation_mode_t("DELAY_BETWEEN_PACKETS"));
+      config_axi_stream(net, slave_axi_stream_agent,  to_operation_mode_t("DELAY_BETWEEN_BEATS"));
+
+      for i in 0 to 10 loop
+        tlast := '1' when (i = 10) else '0';
+        push_axi_stream(net, master_axi_stream_agent, rnd_stimuli.RandSlv(axi_data_width), tlast);
+      end loop;
+
+      for i in 0 to 10 loop
+        pop_axi_stream(net, slave_axi_stream_agent, data, tlast);
+        check_equal(data, rnd_expected.RandSlv(axi_data_width), "pop stream data");
+        if ( i=10 ) then
+          check_equal(tlast, true, "pop stream last");
+        else
+          check_equal(tlast, false, "pop stream last");
+        end if;
+      end loop;
+
+    elsif run("Multiple axi push and axi pop - master/slave delay_between_beats/delay_between_packets") then
       packet_to_send := 10;
       packet_length  := 10;
 
-      config_axi_stream(net, master_axi_stream_agent, to_operation_mode_t("DELAY_BETWEEN_PACKETS"));
+      config_axi_stream(net, master_axi_stream_agent, to_operation_mode_t("DELAY_BETWEEN_BEATS"));
+      config_axi_stream(net, slave_axi_stream_agent,  to_operation_mode_t("DELAY_BETWEEN_PACKETS"));
 
       for j in 0 to packet_to_send loop
         for i in 0 to packet_length loop
@@ -188,7 +199,7 @@ begin
 
       for packet_to_send in 0 to 10 loop
         while (tlast /= '1') loop
-          pop_axi_stream(net, slave_axi_stream, data, tlast);
+          pop_axi_stream(net, slave_axi_stream_agent, data, tlast);
           check_equal(data, rnd_expected.RandSlv(axi_data_width), "pop stream data");
         end loop;
         tlast := '0';
@@ -213,9 +224,9 @@ begin
       tkeep  => tkeep,
       tuser  => tuser);
 
-  axi_stream_slave_inst : entity work.axi_stream_slave
+  axi_stream_slave_agent_inst : entity work.axi_stream_slave_agent
     generic map (
-      slave => slave_axi_stream)
+      slave => slave_axi_stream_agent)
     port map (
       aclk   => aclk,
       tvalid => tvalid,
