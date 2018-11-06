@@ -97,12 +97,14 @@ begin
               wait until (tvalid = '1' and tready = '1' and tlast = '1');
               pop_new_msg <= False;
               wait for PACKET_DELAY * 1 ns;
+              wait until rising_edge(aclk);
               pop_new_msg <= True;
 
           when DELAY_BETWEEN_BEATS =>
               wait until (tvalid = '1' and tready = '1');
               pop_new_msg <= False;
               wait for BEAT_DELAY * 1 ns;
+              wait until rising_edge(aclk);
               pop_new_msg <= True;
 
           when others =>

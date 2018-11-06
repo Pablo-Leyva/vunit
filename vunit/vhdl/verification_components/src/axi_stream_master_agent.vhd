@@ -87,16 +87,16 @@ begin
       vlast := pop_std_ulogic(msg);
       valid_bytes := valid_bytes + 1;
       if(vlast = '1' or valid_bytes = data_length(get_axi_stream(master))/8) then
-        vkeep := (valid_bytes-1 downto 0 => '1');
+        vkeep(valid_bytes-1 downto 0) := (others => '1');
         push_axi_stream(net, master.p_axi_stream_master, vdata, vlast, vkeep);
         wait until (tvalid = '1' and tready = '1' and rising_edge(aclk));
-      end if;
         valid_bytes := 0;
         vlast       := '0';
         vkeep       := (others => '0');
-      else
-        unexpected_msg_type(msg_type);
       end if;
+    else
+        unexpected_msg_type(msg_type);
+    end if;
   end process;
 
   p_transfer_delay : process

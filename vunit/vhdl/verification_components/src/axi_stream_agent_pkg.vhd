@@ -85,9 +85,25 @@ package axi_stream_agent_pkg is
   procedure await_pop_axi_stream_reply(signal net : inout network_t;
                                        variable reference : inout stream_reference_t;
                                        variable tdata : out std_logic_vector;
+                                       variable tlast : out std_logic;
+                                       variable tkeep : out std_logic_vector);
+
+  procedure await_pop_axi_stream_reply(signal net : inout network_t;
+                                       variable reference : inout stream_reference_t;
+                                       variable tdata : out std_logic_vector;
                                        variable tlast : out std_logic);
 
  -- Non-blocking: pop a value from the stream to be read in the future
+ procedure pop_axi_stream_transfer(signal net : inout network_t;
+                                   axi_stream_agent : axi_stream_slave_agent_t;
+                                   axi_stream_transfer : queue_t);
+
+ procedure pop_axi_stream(signal net : inout network_t;
+                           axi_stream_agent : axi_stream_slave_agent_t;
+                           variable tdata : out std_logic_vector;
+                           variable tlast : out std_logic;
+                           variable tkeep : out std_logic_vector);
+
   procedure pop_axi_stream(signal net : inout network_t;
                             axi_stream_agent : axi_stream_slave_agent_t;
                             variable reference : inout stream_reference_t);
@@ -206,9 +222,8 @@ package body axi_stream_agent_pkg is
                             tdata : std_logic_vector;
                             tlast : std_logic) is
     variable msg : msg_t := new_msg(push_axi_stream_msg);
-    constant normalized_data : std_logic_vector(data_length(axi_stream_agent)-1 downto 0) := tdata;
   begin
-    push_std_ulogic_vector(msg, normalized_data);
+    push_std_ulogic_vector(msg, tdata);
     push_std_ulogic(msg, tlast);
     send(net, axi_stream_agent.p_actor, msg);
   end;
@@ -235,6 +250,21 @@ package body axi_stream_agent_pkg is
   procedure await_pop_axi_stream_reply(signal net : inout network_t;
                                       variable reference : inout stream_reference_t;
                                       variable tdata : out std_logic_vector;
+                                      variable tlast : out std_logic;
+                                      variable tkeep : out std_logic_vector) is
+    variable reply_msg : msg_t;
+  begin
+    receive_reply(net, reference, reply_msg);
+    tdata := pop_std_ulogic_vector(reply_msg);
+    tlast := pop_std_ulogic(reply_msg);
+    tkeep := pop_std_ulogic_vector(reply_msg);
+    delete(reference);
+    delete(reply_msg);
+  end;
+
+  procedure await_pop_axi_stream_reply(signal net : inout network_t;
+                                      variable reference : inout stream_reference_t;
+                                      variable tdata : out std_logic_vector;
                                       variable tlast : out std_logic) is
     variable reply_msg : msg_t;
   begin
@@ -251,6 +281,40 @@ package body axi_stream_agent_pkg is
   begin
     reference := new_msg(pop_axi_stream_msg);
     send(net, axi_stream_agent.p_actor, reference);
+  end;
+
+  procedure pop_axi_stream_transfer(signal net : inout network_t;
+                                    axi_stream_agent : axi_stream_slave_agent_t;
+                                    axi_stream_transfer : queue_t) is
+
+  variable tdata : std_logic_vector(data_length(axi_stream_agent)-1 downto 0)   := (others => '0');
+  variable tkeep : std_logic_vector(data_length(axi_stream_agent)/8-1 downto 0) := (others => '0');
+  variable tlast : std_logic := '0';
+  variable byte  : std_logic_vector(7 downto 0) := (others => '0');
+
+  variable new_queue : queue_t := new_queue;
+
+  begin
+
+    while (tlast = '0') loop
+      pop_axi_stream(net, axi_stream_agent, tdata, tlast, tkeep);
+      for i in 0 to tkeep'length-1 loop
+          if(tkeep(i) = '1') then
+            push_std_ulogic_vector(axi_stream_transfer, tdata( 7 + 8*i downto 8*i) );
+          end if;
+      end loop;
+    end loop;
+  end;
+
+  procedure pop_axi_stream(signal net : inout network_t;
+                          axi_stream_agent : axi_stream_slave_agent_t;
+                          variable tdata : out std_logic_vector;
+                          variable tlast : out std_logic;
+                          variable tkeep : out std_logic_vector) is
+    variable reference : stream_reference_t;
+  begin
+    pop_axi_stream(net, axi_stream_agent, reference);
+    await_pop_axi_stream_reply(net, reference, tdata, tlast, tkeep);
   end;
 
   procedure pop_axi_stream(signal net : inout network_t;

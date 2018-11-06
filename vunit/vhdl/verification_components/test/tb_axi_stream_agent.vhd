@@ -111,6 +111,9 @@ begin
 
     variable reference_queue : queue_t := new_queue;
     variable reference : stream_reference_t;
+
+    variable axi_stream_width_in_bytes : integer;
+    variable upper_limit : integer;
   begin
     test_runner_setup(runner, runner_cfg);
 
@@ -122,6 +125,47 @@ begin
 
     if run("Check parameter configuration") then
       check_equal((axi_data_width mod 8 ), 0, "axis stream width must be an integer multiple of 8");
+
+    elsif run("single axi push and axi pop - different ratio") then
+      config_axi_stream(net, master_axi_stream_agent, to_operation_mode_t("DELAY_BETWEEN_PACKETS"));
+      config_axi_stream(net, slave_axi_stream_agent,  to_operation_mode_t("NO_DELAY"));
+
+      axi_stream_width_in_bytes := data_length(master_axi_stream)/8;
+
+      upper_limit := axi_stream_width_in_bytes - 1;
+      for i in 1 to upper_limit loop
+        tlast := '1' when i = upper_limit else '0';
+        push_axi_stream(net, master_axi_stream_agent, rnd_stimuli.RandSlv(8), tlast);
+      end loop;
+
+      upper_limit := axi_stream_width_in_bytes;
+      for i in 1 to upper_limit loop
+        tlast := '1' when i = upper_limit else '0';
+        push_axi_stream(net, master_axi_stream_agent, rnd_stimuli.RandSlv(8), tlast);
+      end loop;
+
+      upper_limit := axi_stream_width_in_bytes + 1;
+      for i in 1 to upper_limit loop
+        tlast := '1' when i = upper_limit else '0';
+        push_axi_stream(net, master_axi_stream_agent, rnd_stimuli.RandSlv(8), tlast);
+      end loop;
+
+      for i in 1 to 3 loop
+        tlast := '0';
+        while(tlast /= '1') loop
+          pop_axi_stream(net, slave_axi_stream_agent, data, tlast);
+        end loop;
+      end loop;
+
+--      pop_axi_stream(net, slave_axi_stream_agent, data, tlast);
+--      pop_axi_stream(net, slave_axi_stream_agent, data, tlast);
+--      pop_axi_stream(net, slave_axi_stream_agent, data, tlast);
+--
+--      info("expecting: "&to_string(rnd_expected.RandSlv(axi_data_width)));
+--      check_equal(data, rnd_expected.RandSlv(axi_data_width), "pop stream data");
+--      check_equal(tlast, true, "pop stream last");
+
+      wait for 100 ns;
 
     elsif run("single axi push and axi pop - master/slave no_delay/no_delay") then
       config_axi_stream(net, master_axi_stream_agent, to_operation_mode_t("NO_DELAY"));
