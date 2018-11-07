@@ -67,4 +67,6 @@ for test in tb_axi_stream_agent.get_tests():
     test.add_config(name='bus_width',
                     generics=dict(encoded_tb_cfg=encode(axis_tb_cfg)))
 
+tb_wishbone_master = lib.test_bench("tb_wishbone_master")
+
 ui.main()
