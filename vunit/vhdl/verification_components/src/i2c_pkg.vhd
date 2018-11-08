@@ -24,6 +24,7 @@ package i2c_pkg is
   type i2c_slave_t is record
     p_actor : actor_t;
     p_i2c_address : std_logic_vector(7 downto 0);
+    p_reg_address : std_logic_vector(7 downto 0);
     p_bus_freq : integer;
   end record;
 
@@ -48,8 +49,9 @@ package i2c_pkg is
   --constant i2c_master_logger : logger_t := get_logger("vunit_lib:i2c_master_pkg");
   impure function new_i2c_transfer return i2c_transfer_t;
   impure function new_i2c_master(p_bus_freq : integer := 100000) return i2c_master_t;
-  impure function new_i2c_slave(p_i2c_address : std_ulogic_vector(7 downto 0); p_bus_freq : integer := 100000) return i2c_slave_t;
+  impure function new_i2c_slave( p_bus_freq : integer := 100000) return i2c_slave_t;
   impure function get_i2c_period(i2c_master : i2c_master_t) return time;
+  impure function get_i2c_period(i2c_slave  : i2c_slave_t) return time;
 
   procedure write_i2c_buff(signal   net         : inout network_t;
                                     i2c_master  : in    i2c_master_t;
@@ -84,24 +86,34 @@ package body i2c_pkg is
   impure function new_i2c_master(p_bus_freq : integer := 100000)
     return i2c_master_t is
   begin
-    return (p_actor => new_actor,
-            p_bus_freq         => p_bus_freq
+    return (p_actor     => new_actor,
+            p_bus_freq  => p_bus_freq
         );
   end;
 
-  impure function new_i2c_slave(p_i2c_address : std_ulogic_vector(7 downto 0); p_bus_freq : integer := 100000)
+  impure function new_i2c_slave(p_bus_freq : integer := 100000)
     return i2c_slave_t is
+      variable i2c_slave : i2c_slave_t;
   begin
-    return (p_actor => new_actor,
-            p_i2c_address => p_i2c_address,
-            p_bus_freq => p_bus_freq
-        );
+
+    i2c_slave.p_actor       := new_actor;
+    i2c_slave.p_i2c_address := "10101010";
+    i2c_slave.p_reg_address := (others => '0');
+    i2c_slave.p_bus_freq    := p_bus_freq;
+
+    return i2c_slave;
   end;
 
   impure function get_i2c_period(i2c_master : i2c_master_t)
     return time is
   begin
     return natural( real(1.0)/real(i2c_master.p_bus_freq)*real(10e6) ) * (1 us);
+  end;
+
+  impure function get_i2c_period(i2c_slave : i2c_slave_t)
+    return time is
+  begin
+    return natural( real(1.0)/real(i2c_slave.p_bus_freq)*real(10e6) ) * (1 us);
   end;
 
   procedure write_i2c_buff(signal   net         : inout network_t;
@@ -182,12 +194,10 @@ package body i2c_pkg is
         push_std_ulogic_vector(data,pop_std_ulogic_vector(reply_msg));
       end loop;
     end if;
-    msg := new_msg(i2c_stop_msg);
-    wait for 20*get_i2c_period(i2c_master);
-    send(net, i2c_master.p_actor, msg);
 
     -- Stop Condition
     msg := new_msg(i2c_stop_msg);
+    wait for 20*get_i2c_period(i2c_master);
     send(net, i2c_master.p_actor, msg);
   end;
 

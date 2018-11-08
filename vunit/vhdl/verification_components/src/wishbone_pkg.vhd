@@ -51,4 +51,7 @@ package body wishbone_pkg is
         );
   end;
 
+  constant bus_write_msg : msg_type_t := new_msg_type("write bus");
+  constant bus_read_msg : msg_type_t := new_msg_type("read bus");
+
 end package body;

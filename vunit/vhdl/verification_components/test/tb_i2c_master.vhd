@@ -23,16 +23,10 @@ end entity;
 architecture a of tb_i2c_master is
 
   constant i2c_master : i2c_master_t := new_i2c_master;
+  constant i2c_slave  : i2c_slave_t  := new_i2c_slave;
 
   signal sda : std_logic := 'Z';
   signal scl : std_logic := 'Z';
-
-  signal sda_in : std_logic;
-  signal sda_oe : std_logic;
-  signal scl_in : std_logic;
-  signal scl_oe : std_logic;
-
-  signal rst : std_ulogic := '0';
 
 begin
 
@@ -48,17 +42,13 @@ begin
 
     test_runner_setup(runner, runner_cfg);
 
-    rst <= '0';  wait for get_i2c_period(i2c_master);
-    rst <= '1';  wait for get_i2c_period(i2c_master);
-    rst <= '0';  wait for get_i2c_period(i2c_master);
-
     if run("i2c Test 01") then
       wait for 100 us;
       push_std_ulogic_vector(data_buff, std_logic_vector(to_unsigned(1,8)));
       push_std_ulogic_vector(data_buff, std_logic_vector(to_unsigned(1,8)));
       push_std_ulogic_vector(data_buff, std_logic_vector(to_unsigned(1,8)));
 
-      write_i2c_buff(net, i2c_master, "1010010", "11111111", 3, data_buff, i2c_ack);
+      write_i2c_buff(net, i2c_master, "1010101", "11111111", 3, data_buff, i2c_ack);
 
       if(i2c_ack) then
           info("Transfer ACK! :) ");
@@ -70,7 +60,7 @@ begin
       info("Test 02");
       wait for 100 us;
       i2c_ack := true;
-      read_i2c_buff(net, i2c_master, "1010010", "11111111", 2, data_buff, i2c_ack);
+      read_i2c_buff(net, i2c_master, "1010101", "11111111", 2, data_buff, i2c_ack);
       for i in 0 to 2-1 loop
         info("Data Readed:"&to_string(pop_std_ulogic_vector(data_buff)));
       end loop;
@@ -90,13 +80,7 @@ begin
       scl => scl
     );
 
-    sda <= 'Z' when sda_oe = '0' else '0';
-    sda_in <= '0' when sda = '0' else '1';
-
-    scl <= 'Z' when scl_oe = '0' else '0';
-    scl_in <= '0' when scl = '0' else '1';
-
-  i_i2c_master : entity work.i2c_slave
+  i_i2c_slave : entity work.i2c_slave
     generic map (
       slave => i2c_slave)
     port map (
