@@ -61,12 +61,26 @@ package i2c_pkg is
                                     data        : in    queue_t;
                            variable ack         : out   boolean);
 
+  procedure write_i2c_reg( signal   net         : inout network_t;
+                                    i2c_master  : in    i2c_master_t;
+                                    i2c_address : in    std_logic_vector;
+                                    reg_address : in    std_logic_vector;
+                                    data        : in    std_logic_vector;
+                           variable ack         : out   boolean);
+
   procedure read_i2c_buff( signal   net         : inout network_t;
                                     i2c_master  : in    i2c_master_t;
                                     i2c_address : in    std_logic_vector;
                                     reg_address : in    std_logic_vector;
                                     data_length : in    integer;
                                     data        : out   queue_t;
+                           variable ack         : out   boolean);
+
+  procedure read_i2c_reg(  signal   net         : inout network_t;
+                                    i2c_master  : in    i2c_master_t;
+                                    i2c_address : in    std_logic_vector;
+                                    reg_address : in    std_logic_vector;
+                                    data        : out   std_logic_vector;
                            variable ack         : out   boolean);
 
 end package;
@@ -131,8 +145,6 @@ package body i2c_pkg is
     msg := new_msg(i2c_start_msg);
     send(net, i2c_master.p_actor, msg);
 
-    wait for 20*get_i2c_period(i2c_master);
-
     -- Write reg address
     msg := new_msg(i2c_write_msg);
     push_std_ulogic_vector(msg, i2c_address);
@@ -143,11 +155,21 @@ package body i2c_pkg is
     end loop;
     request(net, i2c_master.p_actor, msg, ack);
 
-    wait for 20*get_i2c_period(i2c_master);
-
     -- Stop Condition
     msg := new_msg(i2c_stop_msg);
     send(net, i2c_master.p_actor, msg);
+  end;
+
+  procedure write_i2c_reg(signal   net         : inout network_t;
+                                   i2c_master  : in    i2c_master_t;
+                                   i2c_address : in    std_logic_vector;
+                                   reg_address : in    std_logic_vector;
+                                   data        : in    std_logic_vector;
+                          variable ack         : out   boolean) is
+    variable data_q : queue_t := new_queue;
+  begin
+    push_std_ulogic_vector(data_q,data);
+    write_i2c_buff(net, i2c_master, i2c_address, reg_address, 1, data_q,     ack);
   end;
 
   procedure read_i2c_buff(signal    net         : inout network_t;
@@ -172,19 +194,16 @@ package body i2c_pkg is
     push_std_ulogic_vector(msg, i2c_address);
     push_std_ulogic_vector(msg, reg_address);
     push_integer(msg, 0);
-    wait for 20*get_i2c_period(i2c_master);
     send(net, i2c_master.p_actor, msg);
 
     -- Start Condition
     msg := new_msg(i2c_start_msg);
-    wait for 20*get_i2c_period(i2c_master);
     send(net, i2c_master.p_actor, msg);
 
     -- Read data
     msg := new_msg(i2c_read_msg);
     push_std_ulogic_vector(msg, i2c_address);
     push_integer(msg, data_length);
-    wait for 20*get_i2c_period(i2c_master);
     send(net, i2c_master.p_actor, msg);
 
     receive_reply(net, msg, reply_msg);
@@ -197,8 +216,20 @@ package body i2c_pkg is
 
     -- Stop Condition
     msg := new_msg(i2c_stop_msg);
-    wait for 20*get_i2c_period(i2c_master);
     send(net, i2c_master.p_actor, msg);
   end;
+
+  procedure read_i2c_reg(signal    net         : inout network_t;
+                                   i2c_master  : in    i2c_master_t;
+                                   i2c_address : in    std_logic_vector;
+                                   reg_address : in    std_logic_vector;
+                                   data        : out   std_logic_vector;
+                         variable  ack         : out   boolean) is
+    variable data_q : queue_t;
+  begin
+    read_i2c_buff(net, i2c_master, i2c_address, reg_address, 1, data_q, ack);
+    data := pop_std_ulogic_vector(data_q);
+  end;
+
 
 end package body;

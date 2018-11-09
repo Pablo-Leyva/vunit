@@ -120,29 +120,16 @@ begin
       -- I2C ADDRESS
       i2c_address := pop_std_ulogic_vector(request_msg)&'0'; --write
       write_byte(i2c_address, ack);
-      if(not ack) then info("WRITE: i2c Address NACK! ");
-      else             info("WRITE: i2c Address ACK! "); end if;
-
-      wait for 10*(I2C_PERIOD_C/2);
 
       -- REG ADDRESS
       if (ack) then
         write_byte(pop_std_ulogic_vector(request_msg), ack);
-        if(not ack) then info("WRITE: reg Address NACK! ");
-        else             info("WRITE: reg Address ACK! "); end if;
       end if;
-
-      wait for 10*(I2C_PERIOD_C/2);
 
       -- DATA
       if (ack) then
        for i in 0 to pop_integer(request_msg)-1 loop
          write_byte(pop_std_ulogic_vector(request_msg), ack);
-         if(not ack) then info("WRITE: Data NACK! :) ");exit;
-         else             info("WRITE: Data ACK! "); end if;
-
-         wait for 10*(I2C_PERIOD_C/2);
-
        end loop;
       end if;
       acknowledge(net, request_msg, ack);
@@ -151,10 +138,6 @@ begin
       -- I2C ADDRESS
       i2c_address := pop_std_ulogic_vector(request_msg)&'1'; --read
       write_byte(i2c_address, ack);
-      if(not ack) then info("READ: i2c Address NACK! ");
-      else             info("READ: i2c Address ACK! "); end if;
-
-      wait for 10*(I2C_PERIOD_C/2);
 
       -- DATA
       push_boolean(reply_msg, ack);
@@ -164,12 +147,8 @@ begin
           ack := i/=(index_v-1);
           read_byte(byte_v, ack);
           push_std_ulogic_vector(reply_msg, byte_v);
-
-          wait for 10*(I2C_PERIOD_C/2);
-
         end loop;
       end if;
-      info("READ: i2c DATA ACK! ");
       reply(net, request_msg, reply_msg);
 
     else
