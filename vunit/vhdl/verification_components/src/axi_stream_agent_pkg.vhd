@@ -292,8 +292,6 @@ package body axi_stream_agent_pkg is
   variable tlast : std_logic := '0';
   variable byte  : std_logic_vector(7 downto 0) := (others => '0');
 
-  variable new_queue : queue_t := new_queue;
-
   begin
 
     while (tlast = '0') loop

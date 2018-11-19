@@ -57,11 +57,11 @@ begin
                          variable ack  : out boolean) is
     begin
       for i in 0 to 7 loop
-        scl_o <= '0';           wait for 0 ns;
+        scl_o <= '0';           wait for get_hold_time(master);
         sda_o <= byte_v(7 - i); wait for I2C_PERIOD_C/2;
         scl_o <= '1';           wait for I2C_PERIOD_C/2;if scl_i /= '1' then wait until scl_i = '1'; end if;
       end loop;
-      scl_o <= '0';             wait for 0 ns;
+      scl_o <= '0';             wait for get_hold_time(master);
       sda_o <= '1';             wait for I2C_PERIOD_C/2;
 
       -- Clock stretching
@@ -84,13 +84,13 @@ begin
         wait for I2C_PERIOD_C/2;
       end loop;
 
-      scl_o <= '0'; wait for 0 ns;
+      scl_o <= '0'; wait for get_hold_time(master);
       sda_o <= '0' when ack else '1'; wait for I2C_PERIOD_C/2;
 
       scl_o <= '1'; if scl_i /= '1' then wait until scl_i = '1'; end if;
 
       wait for I2C_PERIOD_C/2;
-      scl_o <= '0'; wait for 0 ns;
+      scl_o <= '0'; wait for get_hold_time(master);
       sda_o <= '1';
 
     end procedure read_byte;
@@ -104,18 +104,24 @@ begin
     handle_sync_message(net, type_msg, request_msg);
 
     if type_msg = i2c_start_msg then
-
-      scl_o <= '0'; wait for I2C_PERIOD_C/4;
-      sda_o <= '1'; wait for I2C_PERIOD_C/4;
-      scl_o <= '1'; wait for I2C_PERIOD_C/4;
-      sda_o <= '0'; wait for I2C_PERIOD_C/4;
+      if(scl_o <= '0') then
+        scl_o <= '0'; wait for I2C_PERIOD_C/4;
+        sda_o <= '1'; wait for I2C_PERIOD_C/4;
+        scl_o <= '1'; wait for I2C_PERIOD_C/4;
+        sda_o <= '0'; wait for I2C_PERIOD_C/4;
+      else
+        sda_o <= '0'; wait for I2C_PERIOD_C/4;
+      end if;
 
     elsif type_msg = i2c_stop_msg then
-      scl_o <= '0'; wait for I2C_PERIOD_C/4;
-      sda_o <= '0'; wait for I2C_PERIOD_C/4;
-      scl_o <= '1'; wait for I2C_PERIOD_C/4;
-      sda_o <= '1'; wait for I2C_PERIOD_C/4;
-
+      if(scl_o <= '0') then
+        scl_o <= '0'; wait for I2C_PERIOD_C/4;
+        sda_o <= '0'; wait for I2C_PERIOD_C/4;
+        scl_o <= '1'; wait for I2C_PERIOD_C/4;
+        sda_o <= '1'; wait for I2C_PERIOD_C/4;
+      else
+        sda_o <= '1'; wait for I2C_PERIOD_C/4;
+      end if;
     elsif type_msg = i2c_write_msg then
       -- I2C ADDRESS
       i2c_address := pop_std_ulogic_vector(request_msg)&'0'; --write

@@ -110,22 +110,22 @@ begin
       sda_o <= byte_v(7);
       wait until rising_edge(scl_i);
       for i in 0 to 6 loop
-        wait until falling_edge(scl_i);
+        wait until falling_edge(scl_i); wait for get_hold_time(slave);
         sda_o <= byte_v(6 - i);
         wait until rising_edge(scl_i);
       end loop;
-      wait until falling_edge(scl_i);
+      wait until falling_edge(scl_i); wait for get_hold_time(slave);
       sda_o <= '1'; --release the bus
     end procedure write_byte;
 
     procedure write_ack( variable ack : in  boolean ) is
       begin
-        wait until falling_edge(scl_i);
-        scl_o <= '0';
+        wait until falling_edge(scl_i); wait for get_hold_time(slave);
+        scl_o <= '0'; wait for get_hold_time(slave);
         sda_o <= '0' when ack else '1';
         wait for I2C_PERIOD_C/2;
         scl_o <= '1';
-        wait until falling_edge(scl_i);
+        wait until falling_edge(scl_i); wait for get_hold_time(slave);
         sda_o <= '1' ;  --release the bus
       end procedure write_ack;
 

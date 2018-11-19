@@ -19,6 +19,8 @@ package i2c_pkg is
   type i2c_master_t is record
     p_actor : actor_t;
     p_bus_freq : integer;
+    p_setup_time : time;
+    p_hold_time : time;
   end record;
 
   type i2c_slave_t is record
@@ -26,6 +28,8 @@ package i2c_pkg is
     p_i2c_address : std_logic_vector(7 downto 0);
     p_reg_address : std_logic_vector(7 downto 0);
     p_bus_freq : integer;
+    p_setup_time : time;
+    p_hold_time : time;
   end record;
 
   type i2c_transfer_t is record
@@ -48,10 +52,16 @@ package i2c_pkg is
 
   --constant i2c_master_logger : logger_t := get_logger("vunit_lib:i2c_master_pkg");
   impure function new_i2c_transfer return i2c_transfer_t;
+
   impure function new_i2c_master(p_bus_freq : integer := 100000) return i2c_master_t;
-  impure function new_i2c_slave( p_bus_freq : integer := 100000) return i2c_slave_t;
   impure function get_i2c_period(i2c_master : i2c_master_t) return time;
+  impure function get_setup_time(i2c_master : i2c_master_t) return time;
+  impure function get_hold_time(i2c_master : i2c_master_t) return time;
+
+  impure function new_i2c_slave( p_bus_freq : integer := 100000) return i2c_slave_t;
   impure function get_i2c_period(i2c_slave  : i2c_slave_t) return time;
+  impure function get_setup_time(i2c_slave : i2c_slave_t) return time;
+  impure function get_hold_time(i2c_slave : i2c_slave_t) return time;
 
   procedure write_i2c_buff(signal   net         : inout network_t;
                                     i2c_master  : in    i2c_master_t;
@@ -100,8 +110,10 @@ package body i2c_pkg is
   impure function new_i2c_master(p_bus_freq : integer := 100000)
     return i2c_master_t is
   begin
-    return (p_actor     => new_actor,
-            p_bus_freq  => p_bus_freq
+    return (p_actor      => new_actor,
+            p_bus_freq   => p_bus_freq,
+            p_setup_time => 600 ns,
+            p_hold_time  => 600 ns
         );
   end;
 
@@ -114,6 +126,8 @@ package body i2c_pkg is
     i2c_slave.p_i2c_address := "10101010";
     i2c_slave.p_reg_address := (others => '0');
     i2c_slave.p_bus_freq    := p_bus_freq;
+    i2c_slave.p_setup_time  := 600 ns;
+    i2c_slave.p_hold_time   := 600 ns;
 
     return i2c_slave;
   end;
@@ -124,10 +138,34 @@ package body i2c_pkg is
     return natural( real(1.0)/real(i2c_master.p_bus_freq)*real(10e6) ) * (1 us);
   end;
 
+  impure function get_setup_time(i2c_master : i2c_master_t)
+    return time is
+  begin
+    return i2c_master.p_setup_time;
+  end;
+
+  impure function get_hold_time(i2c_master : i2c_master_t)
+    return time is
+  begin
+    return i2c_master.p_hold_time;
+  end;
+
   impure function get_i2c_period(i2c_slave : i2c_slave_t)
     return time is
   begin
     return natural( real(1.0)/real(i2c_slave.p_bus_freq)*real(10e6) ) * (1 us);
+  end;
+
+  impure function get_setup_time(i2c_slave : i2c_slave_t)
+    return time is
+  begin
+    return i2c_slave.p_setup_time;
+  end;
+
+  impure function get_hold_time(i2c_slave : i2c_slave_t)
+    return time is
+  begin
+    return i2c_slave.p_hold_time;
   end;
 
   procedure write_i2c_buff(signal   net         : inout network_t;
