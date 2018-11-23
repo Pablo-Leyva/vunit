@@ -110,7 +110,15 @@ begin
         scl_o <= '1'; wait for I2C_PERIOD_C/4;
         sda_o <= '0'; wait for I2C_PERIOD_C/4;
       else
-        sda_o <= '0'; wait for I2C_PERIOD_C/4;
+        if(sda_o <= '1') then
+            sda_o <= '1'; wait for I2C_PERIOD_C/4;
+            sda_o <= '0'; wait for I2C_PERIOD_C/4;
+        else
+            scl_o <= '0'; wait for I2C_PERIOD_C/4;
+            sda_o <= '1'; wait for I2C_PERIOD_C/4;
+            scl_o <= '1'; wait for I2C_PERIOD_C/4;
+            sda_o <= '0'; wait for I2C_PERIOD_C/4;
+        end if;
       end if;
 
     elsif type_msg = i2c_stop_msg then
