@@ -23,8 +23,8 @@ entity litebus_master is
     rst    : in  std_logic;
 
     addr   : out std_logic_vector ( address_length(bus_handle) - 1 downto 0 );
-    re     : out std_logic;
-    we     : out std_logic;
+    re     : out std_logic := '0';
+    we     : out std_logic := '0';
     be     : out std_logic_vector ( byte_enable_length(bus_handle)-1 downto 0 );
     data_i : in  std_logic_vector ( data_length(bus_handle)-1 downto 0 );
     data_o : out std_logic_vector ( data_length(bus_handle)-1 downto 0 );
@@ -35,53 +35,56 @@ end entity;
 
 architecture a of litebus_master is
 begin
-  main : process
-    variable request_msg, reply_msg : msg_t;
-    variable msg_type : msg_type_t;
-    variable w_done, aw_done : boolean;
-  begin
-    loop
-      receive(net, bus_handle.p_actor, request_msg);
-      msg_type := message_type(request_msg);
 
-      if msg_type = bus_read_msg then
-        addr <= pop_std_ulogic_vector(request_msg);
-        re <= '1';
-        wait until (ack or nack) = '1' and rising_edge(clk);
-        -- What should we do if we receive a NACK?
-        re <= '0';
-        if is_visible(bus_handle.p_logger, debug) then
-          debug(bus_handle.p_logger,
-                "Read 0x" & to_hstring(data_i) &
-                " from address 0x" & to_hstring(addr));
-        end if;
+    main : process
+        variable request_msg, reply_msg : msg_t;
+        variable msg_type : msg_type_t;
+        variable w_done, aw_done : boolean;
+    begin
+        receive(net, bus_handle.p_actor, request_msg);
+        msg_type := message_type(request_msg);
 
-        reply_msg := new_msg;
-        push_std_ulogic_vector(reply_msg, data_i);
-        reply(net, request_msg, reply_msg);
-        delete(request_msg);
+        if msg_type = bus_read_msg then
 
-      elsif msg_type = bus_write_msg then
-        addr <= pop_std_ulogic_vector(request_msg);
-        data_o <= pop_std_ulogic_vector(request_msg);
-        be <= pop_std_ulogic_vector(request_msg);
+            addr <= pop_std_ulogic_vector(request_msg);
+            re <= '1';
+            wait until rising_edge(clk);
+            re <= '0';
 
-        we <= '1';
-        wait until (ack or nack) = '1' and rising_edge(clk);
-        -- What should we do if we receive a NACK?
-        we <= '0';
+            if( (ack or nack) = '0' ) then
+                wait until (ack or nack) = '1' and rising_edge(clk);
+            end if;
 
-        if is_visible(bus_handle.p_logger, debug) then
-          debug(bus_handle.p_logger,
+            if is_visible(bus_handle.p_logger, debug) then
+                debug(bus_handle.p_logger, "Read 0x" & to_hstring(data_i) &" from address 0x" & to_hstring(addr));
+            end if;
+
+            reply_msg := new_msg;
+            push_std_ulogic_vector(reply_msg, data_i);
+            reply(net, request_msg, reply_msg);
+            delete(request_msg);
+
+        elsif msg_type = bus_write_msg then
+
+            addr <= pop_std_ulogic_vector(request_msg);
+            data_o <= pop_std_ulogic_vector(request_msg);
+            be <= pop_std_ulogic_vector(request_msg);
+            we <= '1';
+            wait until rising_edge(clk);
+            we <= '0';
+
+            if( (ack or nack) = '0' ) then
+                wait until (ack or nack) = '1' and rising_edge(clk);
+            end if;
+
+            if is_visible(bus_handle.p_logger, debug) then
+                debug(bus_handle.p_logger,
                 "Wrote 0x" & to_hstring(data_o) &
                 " to address 0x" & to_hstring(data_o));
-        end if;
+            end if;
 
-      elsif msg_type = wait_until_idle_msg then
-        handle_wait_until_idle(net, msg_type, request_msg);
-      else
-        unexpected_msg_type(msg_type);
-      end if;
-    end loop;
-  end process;
+        else
+            unexpected_msg_type(msg_type);
+        end if;
+    end process;
 end architecture;

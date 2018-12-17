@@ -69,4 +69,15 @@ for test in tb_axi_stream_agent.get_tests():
 
 tb_wishbone_master = lib.test_bench("tb_wishbone_master")
 
+tb_litebus_master = lib.test_bench("tb_litebus_master")
+
+for test in tb_litebus_master.get_tests():
+    tb_cfg = dict(
+        dat_width = 32,
+        adr_width = 8, #axi_data_width_g=(randint(1, 32)*8),
+        lat_answr = 5) #axi_user_width_g=(randint(1, 32)*8))
+    config_name = encode(tb_cfg)
+    test.add_config(name=config_name,
+                    generics=dict(encoded_tb_cfg=encode(tb_cfg)))
+
 ui.main()
